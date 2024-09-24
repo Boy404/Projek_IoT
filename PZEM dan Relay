@@ -1,0 +1,79 @@
+PZEM dan RELAY
+
+#define interval_1 1000
+#include <ESP8266WiFi.h>
+#include <math.h>
+#include <Wire.h>
+#include <PZEM004Tv30.h>
+
+float rp1 = 0;
+unsigned long time_1 = 0;
+
+// Mendefinisikan pin GPIO untuk relay
+const int relayPin = 5; // GPIO 5 (D1) pada NodeMCU
+
+// Pin configuration for PZEM sensor (pin 14=TX, pin 12=RX)
+PZEM004Tv30 pzem(14, 12);
+
+// The setup function initializes the ESP8266 and sets up WiFi
+void setup() {
+  pinMode(relayPin, OUTPUT);
+  Serial.begin(115200);
+}
+
+// The loop function reads sensor data and calculates power usage and cost
+void loop() {
+  if (millis() >= time_1 + interval_1) {
+    time_1 += interval_1;
+
+     // Mengaktifkan relay (hidup terus)
+    digitalWrite(relayPin, LOW);
+    
+    // Variables for PZEM readings
+    float volt = pzem.voltage();
+    float PF = pzem.pf();
+    float arus = pzem.current();
+    float daya = pzem.power();
+    float Wh = pzem.energy();
+    float totrps;
+    float btotrps;
+
+    // Displaying sensor readings
+    Serial.print("Voltage: ");
+    Serial.print(volt);
+    Serial.println(" V");
+
+    Serial.print("Current: ");
+    Serial.print(arus);
+    Serial.println(" A");
+
+    Serial.print("Power: ");
+    Serial.print(daya);
+    Serial.println(" W");
+
+    Serial.print("Energy: ");
+    Serial.print(Wh);
+    Serial.println(" Wh");
+
+    Serial.print("Power Factor: ");
+    Serial.print(PF);
+    Serial.println(" ");
+
+    // Calculating energy cost
+    if (!isnan(daya)) { // Avoid calculation if the sensor reads NaN
+      float kWh = daya / 1000; // Convert power from W to kWh
+      float rp = (1467 * kWh); // Cost per hour in Rp based on the rate of Rp 1467/kWh
+      float rps = rp / 3600;   // Cost per second
+      totrps = rp1 + rps;
+      rp1 = totrps;
+      btotrps = totrps;
+    } else {
+      totrps = btotrps; // Use previous value if current reading is NaN
+    }
+
+    Serial.print("Cost: Rp.");
+    Serial.print(totrps);
+    Serial.println();
+  }
+    delay(5000);
+}
